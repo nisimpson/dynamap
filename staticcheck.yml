@@ -1,0 +1,13 @@
+run:
+  go: "1.24.4"
+  issues:
+    exclude-dirs:
+      - vendor/
+
+linters:
+  enable:
+    - staticcheck
+
+issues:
+  include:
+    - "all"
