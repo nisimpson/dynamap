@@ -347,19 +347,14 @@ type Order struct {
     Created     time.Time `dynamodbav:"-"`
 }
 
-func (o *Order) MarshalSelf(opts *dynamap.MarshalOptions) error {
+func (o Order) MarshalSelf(opts *dynamap.MarshalOptions) error {
     opts.WithSelfTarget("order", o.ID)
     opts.Created = o.Created
     opts.RefSortKey = opts.Created.Format(time.RFC3339)
     return nil
 }
 
-func (o *Order) MarshalRefs(ctx *dynamap.RelationshipContext) error {
-    // Convert Product slice to Marshaler slice
-    productPtrs := make([]*Product, len(o.Products))
-    for i := range o.Products {
-        productPtrs[i] = &o.Products[i]
-    }
+func (o Order) MarshalRefs(ctx *dynamap.RelationshipContext) error {
     ctx.AddMany("products", dynamap.SliceOf(productPtrs...))
     return nil
 }
@@ -387,7 +382,7 @@ type Product struct {
     Category string `dynamodbav:"category"`
 }
 
-func (p *Product) MarshalSelf(opts *dynamap.MarshalOptions) error {
+func (p Product) MarshalSelf(opts *dynamap.MarshalOptions) error {
     opts.WithSelfTarget("product", p.ID)
     opts.RefSortKey = p.Category
     return nil
@@ -413,7 +408,7 @@ func main() {
     table := dynamap.NewTable("my-table")
 
     // Store a single entity
-    product := &Product{ID: "P1", Category: "electronics"}
+    product := Product{ID: "P1", Category: "electronics"}
     putInput, err := table.MarshalPut(product)
     if err != nil {
         log.Fatal(err)
@@ -533,8 +528,8 @@ queryInput, err := table.MarshalQuery(queryList)
 result, err := ddb.Query(ctx, queryInput)
 
 // Query an entity and its relationships
-queryEntity := &dynamap.QueryEntity{
-    Source: &Order{ID: "O1"},
+queryEntity := dynamap.QueryEntity{
+    Source: Order{ID: "O1"},
     TargetFilter: expression.Key(AttributeNameTarget).BeginsWith("product#"),
     Limit: 20,
 }
