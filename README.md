@@ -485,7 +485,7 @@ The `Table` struct provides simple configuration:
 table := dynamap.NewTable("my-table")
 
 // Custom configuration
-table.KeyDelimiter = "|"           // Default: "#"
+table.KeyDelimiter = "|"            // Default: "#"
 table.RefIndexName = "custom-index" // Default: "ref-index"
 table.PaginationTTL = time.Hour     // Default: 24 hours
 ```
@@ -500,11 +500,11 @@ The library uses a single-table design with delimited keys:
 Example data:
 
 ```
-| hk       | sk         | label             | gsi1_sk    |
-|----------|------------|-------------------|------------|
-| order#O1 | order#O1   | order             | 2025-01-01 |
-| order#O1 | product#P1 | order/O1/products | electronics|
-| order#O1 | product#P2 | order/O1/products | books      |
+| hk       | sk         | label             | gsi1_sk     |
+|----------|------------|-------------------|-------------|
+| order#O1 | order#O1   | order             | 2025-01-01  |
+| order#O1 | product#P1 | order/O1/products | electronics |
+| order#O1 | product#P2 | order/O1/products | books       |
 ```
 
 ### Interfaces
@@ -523,7 +523,7 @@ Example data:
 queryList := &dynamap.QueryList{
     Label: "product",
     LabelSortFilter: func() *expression.KeyConditionBuilder {
-        condition := expression.Key("gsi1_sk").BeginsWith("electronics")
+        condition := expression.Key(AttributeNameRefSortKey).BeginsWith("electronics")
         return &condition
     }(),
     Limit: 10,
@@ -535,10 +535,7 @@ result, err := ddb.Query(ctx, queryInput)
 // Query an entity and its relationships
 queryEntity := &dynamap.QueryEntity{
     Source: &Order{ID: "O1"},
-    TargetFilter: func() *expression.KeyConditionBuilder {
-        condition := expression.Key("sk").BeginsWith("product#")
-        return &condition
-    }(),
+    TargetFilter: expression.Key(AttributeNameTarget).BeginsWith("product#"),
     Limit: 20,
 }
 ```

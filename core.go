@@ -182,6 +182,16 @@ const (
 	AttributeNameRefSortKey = "gsi1_sk"
 )
 
+// NewRelationship creates a new relationship instance with the provided data and options.
+//
+// This function performs the following operations:
+//   - Sets Created and Updated timestamps if they are not already set by using the Tick function.
+//   - Creates a relationship with source key, target key, and label from the provided options.
+//   - Stores the provided data in the relationship.
+//   - Sets an expiry time if a TimeToLive duration is specified.
+//   - It sets the GSI1SK (reference sort key) from the provided options.
+//
+// The function returns a new [Relationship] instance that is configured with the provided options and data.
 func NewRelationship(data any, opts MarshalOptions) Relationship {
 	// Set timestamps if not provided
 	if opts.Created.IsZero() {
