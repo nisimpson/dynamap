@@ -192,7 +192,7 @@ func UnmarshalStartKey(ctx context.Context, p Paginator, cursor string) (Item, e
 // generateCursor creates a unique cursor string using current time and random bytes
 func generateCursor() (string, error) {
 	// Use current time in nanoseconds for uniqueness
-	timestamp := time.Now().UnixNano()
+	timestamp := time.Now().Unix()
 
 	// Add some random bytes for additional uniqueness
 	randomBytes := make([]byte, 8)
@@ -201,8 +201,17 @@ func generateCursor() (string, error) {
 	}
 
 	// Combine timestamp and random bytes
-	combined := fmt.Sprintf("%d_%s", timestamp, base64.URLEncoding.EncodeToString(randomBytes))
+	combined := fmt.Sprintf("%d.%s", timestamp, base64.URLEncoding.EncodeToString(randomBytes))
 
 	// Encode as base64 for URL safety
-	return base64.URLEncoding.EncodeToString([]byte(combined)), nil
+	combined = base64.URLEncoding.EncodeToString([]byte(combined))
+	return firstN(combined, 20), nil
+}
+
+// firstN returns the first n characters of string s, or the entire string if len(s) <= n.
+func firstN(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n]
 }

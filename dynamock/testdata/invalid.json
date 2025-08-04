@@ -1,0 +1,27 @@
+[
+  {
+    "type": "product",
+    "attributes": {
+      "name": "Missing ID Product"
+    }
+  },
+  {
+    "id": "P2",
+    "attributes": {
+      "name": "Missing Type Product"
+    }
+  },
+  {
+    "type": "order",
+    "id": "O1",
+    "relationships": {
+      "products": {
+        "data": [
+          {
+            "id": "P1"
+          }
+        ]
+      }
+    }
+  }
+]

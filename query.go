@@ -2,6 +2,7 @@ package dynamap
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
@@ -10,8 +11,10 @@ import (
 
 // QueryMarshaler can marshal input into a dynamodb query request.
 type QueryMarshaler interface {
+	// MarshalQuery marshals the query into a DynamoDB QueryInput with the given options.
 	MarshalQuery(*MarshalOptions) (*dynamodb.QueryInput, error)
-	UseRefIndex() bool
+	// UseIndex returns the index name to use for the query, or empty string for the main table.
+	UseIndex(*Table) string
 }
 
 // QueryList is a QueryMarshaler that searches the table for collections
@@ -141,5 +144,101 @@ func (q *QueryEntity) MarshalQuery(opts *MarshalOptions) (*dynamodb.QueryInput, 
 	return input, nil
 }
 
-func (QueryEntity) UseRefIndex() bool { return false }
-func (QueryList) UseRefIndex() bool   { return true }
+func (QueryEntity) UseIndex(*Table) string { return "" }
+func (QueryList) UseIndex(t *Table) string { return t.RefIndexName }
+
+// PeriodBefore creates a condition that filters for timestamps before or equal to the given moment.
+func PeriodBefore(name string, moment time.Time) expression.ConditionBuilder {
+	value := moment.Format(time.RFC3339)
+	return expression.Name(name).LessThanEqual(expression.Value(value))
+}
+
+// PeriodAfter creates a condition that filters for timestamps after or equal to the given moment.
+func PeriodAfter(name string, moment time.Time) expression.ConditionBuilder {
+	value := moment.Format(time.RFC3339)
+	return expression.Name(name).GreaterThanEqual(expression.Value(value))
+}
+
+// PeriodBetween creates a condition that filters for timestamps between the start and end times.
+func PeriodBetween(name string, start, end time.Time) expression.ConditionBuilder {
+	startValue := start.Format(time.RFC3339)
+	endValue := end.Format(time.RFC3339)
+	return expression.Name(name).Between(expression.Value(startValue), expression.Value(endValue))
+}
+
+// CreatedBefore creates a condition that filters for entities created before or equal to the given moment.
+func CreatedBefore(moment time.Time) expression.ConditionBuilder {
+	return PeriodBefore(AttributeNameCreated, moment)
+}
+
+// CreatedAfter creates a condition that filters for entities created after or equal to the given moment.
+func CreatedAfter(moment time.Time) expression.ConditionBuilder {
+	return PeriodAfter(AttributeNameCreated, moment)
+}
+
+// CreatedBetween creates a condition that filters for entities created between the start and end times.
+func CreatedBetween(start, end time.Time) expression.ConditionBuilder {
+	return PeriodBetween(AttributeNameCreated, start, end)
+}
+
+// MinAge creates a condition that filters for entities older than the specified age.
+func MinAge(age time.Duration) expression.ConditionBuilder {
+	var (
+		now  = time.Now().UTC()
+		then = now.Add(-age)
+	)
+	return CreatedBefore(then)
+}
+
+// MaxAge creates a condition that filters for entities newer than the specified age.
+func MaxAge(age time.Duration) expression.ConditionBuilder {
+	var (
+		now  = time.Now().UTC()
+		then = now.Add(-age)
+	)
+	return CreatedAfter(then)
+}
+
+// UpdatedBefore creates a condition that filters for entities updated before or equal to the given moment.
+func UpdatedBefore(moment time.Time) expression.ConditionBuilder {
+	return PeriodBefore(AttributeNameUpdated, moment)
+}
+
+// UpdatedAfter creates a condition that filters for entities updated after or equal to the given moment.
+func UpdatedAfter(moment time.Time) expression.ConditionBuilder {
+	return PeriodAfter(AttributeNameUpdated, moment)
+}
+
+// UpdatedBetween creates a condition that filters for entities updated between the start and end times.
+func UpdatedBetween(start, end time.Time) expression.ConditionBuilder {
+	return PeriodBetween(AttributeNameUpdated, start, end)
+}
+
+// ExpiresAfter creates a condition that filters for entities that expire after the given moment.
+func ExpiresAfter(moment time.Time) expression.ConditionBuilder {
+	return expression.LessThan(
+		expression.Name(AttributeNameExpires),
+		expression.Value(moment.Unix()),
+	)
+}
+
+// ExpiresBefore creates a condition that filters for entities that expire before the given moment.
+func ExpiresBefore(moment time.Time) expression.ConditionBuilder {
+	return expression.GreaterThan(
+		expression.Name(AttributeNameExpires),
+		expression.Value(moment.Unix()),
+	)
+}
+
+// ExpiresIn creates a condition that filters for entities that expire within the specified period.
+func ExpiresIn(period time.Duration) expression.ConditionBuilder {
+	var (
+		now  = time.Now().UTC()
+		then = now.Add(period)
+	)
+	return expression.Between(
+		expression.Name(AttributeNameExpires),
+		expression.Value(now.Unix()),
+		expression.Value(then.Unix()),
+	)
+}

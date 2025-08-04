@@ -93,6 +93,13 @@ func (mo MarshalOptions) targetKey() string {
 	return mo.TargetPrefix + mo.KeyDelimiter + mo.TargetID
 }
 
+func (mo MarshalOptions) itemKey() Item {
+	return Item{
+		AttributeNameSource: &types.AttributeValueMemberS{Value: mo.sourceKey()},
+		AttributeNameTarget: &types.AttributeValueMemberS{Value: mo.targetKey()},
+	}
+}
+
 func (mo MarshalOptions) refLabel(name string) string {
 	// label format: <source_prefix>/<source_id>/<relationship_name>
 	return mo.SourcePrefix + mo.LabelDelimiter + mo.SourceID + mo.LabelDelimiter + name
@@ -108,7 +115,15 @@ func (mo MarshalOptions) splitLabel(rel Relationship) (prefix, id, name string, 
 	return parts[0], parts[1], parts[2], nil
 }
 
-func newMarshalOptions(opts ...func(*MarshalOptions)) MarshalOptions {
+// NewMarshalOptions creates a new MarshalOptions instance with default settings
+// and applies any provided option functions.
+//
+// The default settings are:
+// - Tick: DefaultClock function that returns current UTC time
+// - KeyDelimiter: "#" used to separate prefix and ID in hash/sort keys
+// - LabelDelimiter: "/" used to separate label segments
+// - Created/Updated: Set to current time via Tick()
+func NewMarshalOptions(opts ...func(*MarshalOptions)) MarshalOptions {
 	options := MarshalOptions{
 		Tick:           DefaultClock,
 		KeyDelimiter:   "#",
@@ -181,8 +196,8 @@ func NewRelationship(data any, opts MarshalOptions) Relationship {
 		Source:    opts.sourceKey(),
 		Target:    opts.targetKey(),
 		Label:     opts.Label,
-		CreatedAt: opts.Created,
-		UpdatedAt: opts.Updated,
+		CreatedAt: opts.Created.UTC(),
+		UpdatedAt: opts.Updated.UTC(),
 		Data:      data, // Store the entity data in the self relationship
 		GSI1SK:    opts.RefSortKey,
 	}
@@ -284,7 +299,7 @@ func SliceOf[T Marshaler](in ...T) []Marshaler {
 // additional "to-one" and "to-many" relationships.
 func MarshalRelationships(in Marshaler, opts ...func(*MarshalOptions)) ([]Relationship, error) {
 	// Create default options
-	marshalOpts := newMarshalOptions(opts...)
+	marshalOpts := NewMarshalOptions(opts...)
 
 	// Marshal self relationship
 	if err := in.MarshalSelf(&marshalOpts); err != nil {
@@ -392,7 +407,7 @@ func UnmarshalEntity(items []Item, out RefUnmarshaler, opts ...func(*MarshalOpti
 	}
 
 	var (
-		marshalOpts   = newMarshalOptions(opts...)
+		marshalOpts   = NewMarshalOptions(opts...)
 		relationships []Relationship
 	)
 

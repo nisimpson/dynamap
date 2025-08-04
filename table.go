@@ -2,9 +2,11 @@ package dynamap
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
@@ -97,7 +99,7 @@ func (t *Table) MarshalBatch(in RefMarshaler, opts ...func(*MarshalOptions)) ([]
 // to retrieve the relationship from dynamodb.
 func (t *Table) MarshalGet(in Marshaler, opts ...func(*MarshalOptions)) (*dynamodb.GetItemInput, error) {
 	// Create marshal options with table defaults
-	marshalOpts := newMarshalOptions(func(mo *MarshalOptions) {
+	marshalOpts := NewMarshalOptions(func(mo *MarshalOptions) {
 		mo.KeyDelimiter = t.KeyDelimiter
 		mo.LabelDelimiter = t.LabelDelimiter
 		mo.apply(opts)
@@ -109,16 +111,9 @@ func (t *Table) MarshalGet(in Marshaler, opts ...func(*MarshalOptions)) (*dynamo
 		return nil, fmt.Errorf("failed to marshal self: %w", err)
 	}
 
-	// Create the key
-	sourceKey := marshalOpts.sourceKey()
-	key := map[string]types.AttributeValue{
-		"hk": &types.AttributeValueMemberS{Value: sourceKey},
-		"sk": &types.AttributeValueMemberS{Value: sourceKey},
-	}
-
 	return &dynamodb.GetItemInput{
 		TableName: aws.String(t.TableName),
-		Key:       key,
+		Key:       marshalOpts.itemKey(),
 	}, nil
 }
 
@@ -126,7 +121,7 @@ func (t *Table) MarshalGet(in Marshaler, opts ...func(*MarshalOptions)) (*dynamo
 // The self relationship key is used to retrieve the relationship from dynamodb.
 func (t *Table) MarshalDelete(in Marshaler, opts ...func(*MarshalOptions)) (*dynamodb.DeleteItemInput, error) {
 	// Create marshal options with table defaults
-	marshalOpts := newMarshalOptions(func(mo *MarshalOptions) {
+	marshalOpts := NewMarshalOptions(func(mo *MarshalOptions) {
 		mo.KeyDelimiter = t.KeyDelimiter
 		mo.LabelDelimiter = t.LabelDelimiter
 		mo.apply(opts)
@@ -138,23 +133,76 @@ func (t *Table) MarshalDelete(in Marshaler, opts ...func(*MarshalOptions)) (*dyn
 		return nil, fmt.Errorf("failed to marshal self: %w", err)
 	}
 
-	// Create the key
-	sourceKey := marshalOpts.sourceKey()
-	key := map[string]types.AttributeValue{
-		"hk": &types.AttributeValueMemberS{Value: sourceKey},
-		"sk": &types.AttributeValueMemberS{Value: sourceKey},
-	}
-
 	return &dynamodb.DeleteItemInput{
 		TableName: aws.String(t.TableName),
-		Key:       key,
+		Key:       marshalOpts.itemKey(),
 	}, nil
 }
 
-// MarshalQuery marshals the input into a query item request
+// Updater can build update expressions for modifying relationships.
+type Updater interface {
+	// UpdateRelationship builds an update expression using the provided base builder.
+	UpdateRelationship(base expression.UpdateBuilder) expression.UpdateBuilder
+}
+
+// DataAttribute creates a DynamoDB expression NameBuilder for accessing data attributes within the 'data' field.
+// It takes a data attribute suffix and returns a NameBuilder that references 'data.<suffix>'.
+// This is used when building expressions to access or modify nested data attributes in DynamoDB items.
+//
+// Example:
+//
+//	// Access the 'name' field within the 'data' attribute
+//	nameAttr := DataAttribute("name")
+//	// Results in expression referencing 'data.name'
+func DataAttribute(suffix string) expression.NameBuilder {
+	return expression.Name(fmt.Sprintf("%s.%s", AttributeNameData, suffix))
+}
+
+// MarshalUpdate marshals the input into a DynamoDB UpdateItem request using the provided updater.
+func (t *Table) MarshalUpdate(in Marshaler, updater Updater, opts ...func(*MarshalOptions)) (*dynamodb.UpdateItemInput, error) {
+	if updater == nil {
+		return nil, fmt.Errorf("updater is required")
+	}
+
+	// Create marshal options with table defaults
+	marshalOpts := NewMarshalOptions(func(mo *MarshalOptions) {
+		mo.KeyDelimiter = t.KeyDelimiter
+		mo.LabelDelimiter = t.LabelDelimiter
+		mo.apply(opts)
+		mo.SkipRefs = true // Only need self relationship for key
+	})
+
+	// Marshal to get the key information
+	if err := in.MarshalSelf(&marshalOpts); err != nil {
+		return nil, fmt.Errorf("failed to marshal self: %w", err)
+	}
+
+	// Marshal the update expression
+	update := expression.Set(
+		expression.Name(AttributeNameUpdated),
+		expression.Value(marshalOpts.Tick().UTC().Format(time.RFC3339)),
+	)
+	update = updater.UpdateRelationship(update)
+	expr, err := expression.NewBuilder().WithUpdate(update).Build()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build update expression: %w", err)
+	}
+
+	return &dynamodb.UpdateItemInput{
+		TableName:                 aws.String(t.TableName),
+		Key:                       marshalOpts.itemKey(),
+		UpdateExpression:          expr.Update(),
+		ConditionExpression:       expr.Condition(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		ReturnValues:              types.ReturnValueUpdatedNew,
+	}, nil
+}
+
+// MarshalQuery marshals the input into a query item request.
 func (t *Table) MarshalQuery(in QueryMarshaler, opts ...func(*MarshalOptions)) (*dynamodb.QueryInput, error) {
 	// Create marshal options with table defaults
-	marshalOpts := newMarshalOptions(func(mo *MarshalOptions) {
+	marshalOpts := NewMarshalOptions(func(mo *MarshalOptions) {
 		mo.KeyDelimiter = t.KeyDelimiter
 		mo.apply(opts)
 	})
@@ -169,8 +217,8 @@ func (t *Table) MarshalQuery(in QueryMarshaler, opts ...func(*MarshalOptions)) (
 	input.TableName = aws.String(t.TableName)
 
 	// Set the index name if this is a QueryList (queries on label)
-	if in.UseRefIndex() {
-		input.IndexName = aws.String(t.RefIndexName)
+	if index := in.UseIndex(t); index != "" {
+		input.IndexName = aws.String(index)
 	}
 
 	return input, nil

@@ -1,0 +1,31 @@
+[
+  {
+    "type": "product",
+    "id": "P1",
+    "attributes": {
+      "name": "Gaming Laptop",
+      "category": "electronics",
+      "price": 1299,
+      "brand": "TechCorp"
+    }
+  },
+  {
+    "type": "product",
+    "id": "P2",
+    "attributes": {
+      "name": "Wireless Mouse",
+      "category": "electronics",
+      "price": 49,
+      "brand": "TechCorp"
+    }
+  },
+  {
+    "type": "customer",
+    "id": "C1",
+    "attributes": {
+      "name": "John Doe",
+      "email": "john.doe@example.com",
+      "tier": "premium"
+    }
+  }
+]

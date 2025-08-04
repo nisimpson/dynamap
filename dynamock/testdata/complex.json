@@ -1,0 +1,77 @@
+[
+  {
+    "type": "order",
+    "id": "O1",
+    "attributes": {
+      "customer_id": "C1",
+      "total": 1348,
+      "status": "pending",
+      "created_at": "2025-01-15T10:30:00Z"
+    },
+    "relationships": {
+      "products": {
+        "data": [
+          {
+            "type": "product",
+            "id": "P1"
+          },
+          {
+            "type": "product",
+            "id": "P2"
+          }
+        ]
+      },
+      "customer": {
+        "data": {
+          "type": "customer",
+          "id": "C1"
+        }
+      }
+    }
+  },
+  {
+    "type": "order",
+    "id": "O2",
+    "attributes": {
+      "customer_id": "C2",
+      "total": 299,
+      "status": "completed",
+      "created_at": "2025-01-14T15:45:00Z"
+    },
+    "relationships": {
+      "products": {
+        "data": [
+          {
+            "type": "product",
+            "id": "P3"
+          }
+        ]
+      },
+      "customer": {
+        "data": {
+          "type": "customer",
+          "id": "C2"
+        }
+      }
+    }
+  },
+  {
+    "type": "customer",
+    "id": "C2",
+    "attributes": {
+      "name": "Jane Smith",
+      "email": "jane.smith@example.com",
+      "tier": "standard"
+    },
+    "relationships": {
+      "orders": {
+        "data": [
+          {
+            "type": "order",
+            "id": "O2"
+          }
+        ]
+      }
+    }
+  }
+]

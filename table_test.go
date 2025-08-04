@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
@@ -291,4 +292,123 @@ func TestTableCustomConfiguration(t *testing.T) {
 	if table.PaginationTTL != time.Hour {
 		t.Errorf("Expected TTL 1h, got %v", table.PaginationTTL)
 	}
+}
+
+// Test updater for MarshalUpdate tests
+type testUpdater struct {
+	updateFunc func(expression.UpdateBuilder) expression.UpdateBuilder
+}
+
+func (u *testUpdater) UpdateRelationship(base expression.UpdateBuilder) expression.UpdateBuilder {
+	if u.updateFunc != nil {
+		return u.updateFunc(base)
+	}
+	return base.Set(expression.Name("data.category"), expression.Value("updated"))
+}
+
+func TestTableMarshalUpdate(t *testing.T) {
+	table := NewTable("test-table")
+	product := &Product{ID: "P1", Category: "electronics"}
+
+	t.Run("basic update", func(t *testing.T) {
+		updater := &testUpdater{}
+		updateInput, err := table.MarshalUpdate(product, updater)
+		if err != nil {
+			t.Fatalf("Failed to marshal update: %v", err)
+		}
+
+		if *updateInput.TableName != "test-table" {
+			t.Errorf("Expected table name 'test-table', got %s", *updateInput.TableName)
+		}
+
+		hk := updateInput.Key["hk"].(*types.AttributeValueMemberS).Value
+		sk := updateInput.Key["sk"].(*types.AttributeValueMemberS).Value
+
+		if hk != "product#P1" {
+			t.Errorf("Expected hk 'product#P1', got %s", hk)
+		}
+		if sk != "product#P1" {
+			t.Errorf("Expected sk 'product#P1', got %s", sk)
+		}
+
+		if updateInput.UpdateExpression == nil {
+			t.Error("Expected update expression to be set")
+		}
+	})
+
+	t.Run("nil updater", func(t *testing.T) {
+		_, err := table.MarshalUpdate(product, nil)
+		if err == nil {
+			t.Error("Expected error with nil updater")
+		}
+	})
+
+	t.Run("with custom options", func(t *testing.T) {
+		updater := &testUpdater{}
+		updateInput, err := table.MarshalUpdate(product, updater, func(opts *MarshalOptions) {
+			opts.Created = time.Now()
+		})
+
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		if updateInput == nil {
+			t.Error("Expected non-nil update input")
+		}
+	})
+
+	t.Run("custom update function", func(t *testing.T) {
+		updater := &testUpdater{
+			updateFunc: func(base expression.UpdateBuilder) expression.UpdateBuilder {
+				return base.Set(expression.Name("data.price"), expression.Value(100))
+			},
+		}
+
+		updateInput, err := table.MarshalUpdate(product, updater)
+		if err != nil {
+			t.Fatalf("Failed to marshal update: %v", err)
+		}
+
+		if updateInput.UpdateExpression == nil {
+			t.Error("Expected update expression to be set")
+		}
+	})
+}
+func TestDataAttribute(t *testing.T) {
+	t.Run("basic data attribute", func(t *testing.T) {
+		nameAttr := DataAttribute("name")
+		condition := nameAttr.Equal(expression.Value("test"))
+		expr, err := expression.NewBuilder().WithCondition(condition).Build()
+		if err != nil {
+			t.Fatalf("Failed to build expression: %v", err)
+		}
+		if expr.Condition() == nil {
+			t.Error("Expected condition to be built")
+		}
+	})
+
+	t.Run("nested data attribute", func(t *testing.T) {
+		categoryAttr := DataAttribute("category")
+		condition := categoryAttr.Equal(expression.Value("electronics"))
+		expr, err := expression.NewBuilder().WithCondition(condition).Build()
+		if err != nil {
+			t.Fatalf("Failed to build expression: %v", err)
+		}
+		if expr.Condition() == nil {
+			t.Error("Expected condition to be built")
+		}
+	})
+
+	t.Run("complex data attribute", func(t *testing.T) {
+		complexAttr := DataAttribute("user.profile.email")
+		condition := complexAttr.Equal(expression.Value("test@example.com"))
+		expr, err := expression.NewBuilder().WithCondition(condition).Build()
+		if err != nil {
+			t.Fatalf("Failed to build expression: %v", err)
+		}
+		if expr.Condition() == nil {
+			t.Error("Expected condition to be built")
+		}
+	})
 }

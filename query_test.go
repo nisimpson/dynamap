@@ -2,6 +2,7 @@ package dynamap
 
 import (
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -50,7 +51,7 @@ func TestQueryList(t *testing.T) {
 			SortDescending:  true,
 		}
 
-		opts := newMarshalOptions()
+		opts := NewMarshalOptions()
 		input, err := queryList.MarshalQuery(&opts)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
@@ -65,7 +66,7 @@ func TestQueryList(t *testing.T) {
 			Label: "product",
 		}
 
-		opts := newMarshalOptions()
+		opts := NewMarshalOptions()
 		input, err := queryList.MarshalQuery(&opts)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
@@ -122,7 +123,7 @@ func TestQueryEntity(t *testing.T) {
 			SortDescending:  true,
 		}
 
-		opts := newMarshalOptions()
+		opts := NewMarshalOptions()
 		input, err := queryEntity.MarshalQuery(&opts)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
@@ -137,7 +138,7 @@ func TestQueryEntity(t *testing.T) {
 			Source: &Product{ID: "P1", Category: "electronics"},
 		}
 
-		opts := newMarshalOptions()
+		opts := NewMarshalOptions()
 		input, err := queryEntity.MarshalQuery(&opts)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
@@ -149,17 +150,125 @@ func TestQueryEntity(t *testing.T) {
 }
 
 func TestQueryUseRefIndex(t *testing.T) {
+	table := Table{RefIndexName: "index"}
 	t.Run("QueryList uses ref index", func(t *testing.T) {
 		queryList := &QueryList{Label: "product"}
-		if !queryList.UseRefIndex() {
+		if queryList.UseIndex(&table) != "index" {
 			t.Error("Expected QueryList to use ref index")
 		}
 	})
 
 	t.Run("QueryEntity does not use ref index", func(t *testing.T) {
 		queryEntity := &QueryEntity{Source: &Product{ID: "P1", Category: "electronics"}}
-		if queryEntity.UseRefIndex() {
+		if queryEntity.UseIndex(&table) != "" {
 			t.Error("Expected QueryEntity to not use ref index")
+		}
+	})
+}
+func TestFilterFunctions(t *testing.T) {
+	testTime := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+
+	t.Run("PeriodBefore", func(t *testing.T) {
+		condition := PeriodBefore("test_field", testTime)
+		if !condition.IsSet() {
+			t.Error("Expected condition to be set")
+		}
+	})
+
+	t.Run("PeriodAfter", func(t *testing.T) {
+		condition := PeriodAfter("test_field", testTime)
+		if !condition.IsSet() {
+			t.Error("Expected condition to be set")
+		}
+	})
+
+	t.Run("PeriodBetween", func(t *testing.T) {
+		start := testTime
+		end := testTime.Add(time.Hour)
+		condition := PeriodBetween("test_field", start, end)
+		if !condition.IsSet() {
+			t.Error("Expected condition to be set")
+		}
+	})
+
+	t.Run("CreatedBefore", func(t *testing.T) {
+		condition := CreatedBefore(testTime)
+		if !condition.IsSet() {
+			t.Error("Expected condition to be set")
+		}
+	})
+
+	t.Run("CreatedAfter", func(t *testing.T) {
+		condition := CreatedAfter(testTime)
+		if !condition.IsSet() {
+			t.Error("Expected condition to be set")
+		}
+	})
+
+	t.Run("CreatedBetween", func(t *testing.T) {
+		start := testTime
+		end := testTime.Add(time.Hour)
+		condition := CreatedBetween(start, end)
+		if !condition.IsSet() {
+			t.Error("Expected condition to be set")
+		}
+	})
+
+	t.Run("MinAge", func(t *testing.T) {
+		condition := MinAge(24 * time.Hour)
+		if !condition.IsSet() {
+			t.Error("Expected condition to be set")
+		}
+	})
+
+	t.Run("MaxAge", func(t *testing.T) {
+		condition := MaxAge(24 * time.Hour)
+		if !condition.IsSet() {
+			t.Error("Expected condition to be set")
+		}
+	})
+
+	t.Run("UpdatedBefore", func(t *testing.T) {
+		condition := UpdatedBefore(testTime)
+		if !condition.IsSet() {
+			t.Error("Expected condition to be set")
+		}
+	})
+
+	t.Run("UpdatedAfter", func(t *testing.T) {
+		condition := UpdatedAfter(testTime)
+		if !condition.IsSet() {
+			t.Error("Expected condition to be set")
+		}
+	})
+
+	t.Run("UpdatedBetween", func(t *testing.T) {
+		start := testTime
+		end := testTime.Add(time.Hour)
+		condition := UpdatedBetween(start, end)
+		if !condition.IsSet() {
+			t.Error("Expected condition to be set")
+		}
+	})
+
+	t.Run("ExpiresAfter", func(t *testing.T) {
+		condition := ExpiresAfter(testTime)
+		if !condition.IsSet() {
+			t.Error("Expected condition to be set")
+		}
+	})
+
+	t.Run("ExpiresBefore", func(t *testing.T) {
+		condition := ExpiresBefore(testTime)
+		if !condition.IsSet() {
+			t.Error("Expected condition to be set")
+		}
+	})
+
+	t.Run("ExpiresIn", func(t *testing.T) {
+		condition := ExpiresIn(24 * time.Hour)
+		if !condition.IsSet() {
+			t.Error("Expected condition to be set")
 		}
 	})
 }

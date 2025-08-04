@@ -8,6 +8,10 @@ linters:
   enable:
     - staticcheck
 
+linters-settings:
+  staticcheck:
+    checks: ["all", "-SA1019"]
+
 issues:
   include:
     - "all"
