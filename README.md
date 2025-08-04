@@ -604,7 +604,7 @@ if err != nil {
 The library includes comprehensive tests with over 90% coverage:
 
 ```bash
-go test -v                    # Run all tests
+go test -v                   # Run all tests
 go test -cover               # Run with coverage
 go test -run TestExample     # Run specific tests
 ```

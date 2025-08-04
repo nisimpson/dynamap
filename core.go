@@ -69,13 +69,36 @@ type MarshalOptions struct {
 //   - label: The prefix/type of the entity (e.g. "user", "order")
 //   - id: The unique identifier for the entity
 //
-// Returns the modified MarshalOptions for method chaining.
+// Returns the modified [MarshalOptions] for method chaining.
 func (mo *MarshalOptions) WithSelfTarget(label, id string) *MarshalOptions {
-	mo.SourceID = id
-	mo.TargetID = id
-	mo.SourcePrefix = label
-	mo.TargetPrefix = label
+	mo.WithSource(label, id)
+	mo.WithTarget(label, id)
 	mo.Label = label
+	return mo
+}
+
+// WithSource sets the source entity's label (type) and ID in the MarshalOptions.
+// Returns the [MarshalOptions] for method chaining.
+func (mo *MarshalOptions) WithSource(label, id string) *MarshalOptions {
+	mo.SourceID = id
+	mo.SourcePrefix = label
+	return mo
+}
+
+// WithTarget sets the target entity's label (type) and ID in the MarshalOptions.
+// Returns the [MarshalOptions] for method chaining.
+func (mo *MarshalOptions) WithTarget(label, id string) *MarshalOptions {
+	mo.TargetID = id
+	mo.TargetPrefix = label
+	return mo
+}
+
+// WithTimestamp sets the Created and Updated timestamps in the MarshalOptions.
+// The timestamps are converted to UTC.
+// Returns the [MarshalOptions] for method chaining.
+func (mo *MarshalOptions) WithTimestamp(created, updated time.Time) *MarshalOptions {
+	mo.Created = created.UTC()
+	mo.Updated = updated.UTC()
 	return mo
 }
 
