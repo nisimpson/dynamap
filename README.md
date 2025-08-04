@@ -1,5 +1,9 @@
 # Dynamap
 
+[![Test](https://github.com/nisimpson/dynamap/actions/workflows/test.yml/badge.svg)](https://github.com/nisimpson/dynamap/actions/workflows/test.yml)
+[![GoDoc](https://godoc.org/github.com/nisimpson/dynamap?status.svg)](http://godoc.org/github.com/nisimpson/dynamap)
+[![Release](https://img.shields.io/github/release/nisimpson/dynamap.svg)](https://github.com/nisimpson/dynamap/releases)
+
 Dynamap is a lightweight entity-relationship abstraction layer over the AWS SDK for Go v2 DynamoDB client. It allows you to model relationships between domain objects and perform standard CRUD operations on a DynamoDB table with a consistent schema.
 
 ## Features
